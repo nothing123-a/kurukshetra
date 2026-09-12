@@ -458,20 +458,30 @@ YOUR RESPONSIBILITIES AS NARAYAN:
 5. Tone: Knowledgeable, proactive, concise, professional, and empowering. Use Markdown bolding and bullet points.
 """
 
-        # Call Groq LLM
+        # Call Groq / Gemini LLM with Narayan's specific persona
         prompt_with_action = user_message
         if action_result:
             prompt_with_action += f"\n\n[SYSTEM NOTIFICATION: Automated Action Executed: {json.dumps(action_result)}]"
 
-        groq_resp = groq_service.ask_dataset(prompt_with_action, self.active_df, conversation_history)
+        groq_resp = groq_service.ask_dataset(
+            user_question=prompt_with_action,
+            df=self.active_df,
+            conversation_history=conversation_history,
+            system_prompt=system_prompt,
+            agent_name="Narayan"
+        )
         llm_text = groq_resp.get("response", "")
 
-        # If LLM didn't return text, format fallback
+        # If an automated action was executed, prepend it clearly
+        if action_result and not llm_text.startswith("### ⚙️"):
+            llm_text = f"### ⚙️ Action Executed by Narayan\n\n{action_result.get('message')}\n\n" + llm_text
+
+        # If LLM didn't return text or user explicitly asked for step guidance
         if not llm_text:
             if action_result:
                 llm_text = f"### ⚙️ Narayan Action Completed\n\n{action_result.get('message')}\n\nYour dataset has been updated in memory. You can continue cleaning or export to CSV, HTML, or PDF."
-            elif "meaning" in msg_lower:
-                llm_text = f"### 📘 Meaning of '{step_info['title']}'\n\n{step_info['meaning']}\n\n**Key Actions:**\n• {step_info['guidance']}"
+            elif any(w in msg_lower for w in ["meaning", "what does this mean", "what is this page"]):
+                llm_text = f"### 📘 Meaning of '{step_info['title']}'\n\n{step_info['meaning']}\n\n**Key Actions on this Page:**\n• {step_info['guidance']}"
             else:
                 llm_text = f"### 💡 Narayan Pipeline Guidance\n\nTo clean and prepare your dataset effectively on the **{step_info['title']}** page:\n\n• **What to do:** {step_info['guidance']}\n• **Quick commands:** Try asking me to *'remove duplicates'*, *'encrypt sensitive columns'*, *'fill missing values'*, or *'generate B&W PDF report'*!"
 
