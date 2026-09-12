@@ -26,12 +26,14 @@ class GroqService:
     
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key or os.environ.get('GROQ_API_KEY') or DEFAULT_GROQ_KEY
-        # Models supported on Groq in priority order
+        # Models supported on this Groq key
         self.supported_models = [
-            "llama-3.3-70b-versatile",
-            "llama-3.1-8b-instant",
-            "mixtral-8x7b-32768",
-            "gemma2-9b-it"
+            "qwen/qwen3.8-27b",
+            "qwen/qwen3.6-27b",
+            "groq/compound-mini",
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "groq/compound"
         ]
         self.primary_model = self.supported_models[0]
         self.client = None
@@ -393,7 +395,37 @@ GUIDELINES FOR YOUR ANSWER:
                         model_used = f"Groq ({model_candidate})"
                         break
                 except Exception as me:
-                    logger.warning(f"Groq model {model_candidate} attempt failed: {me}")
+                    logger.warning(f"Groq SDK call failed for {model_candidate}: {me}")
+                    continue
+
+        # If client was not available or failed, try direct Groq HTTP REST request
+        if not llm_response and self.api_key:
+            for model_candidate in self.supported_models:
+                try:
+                    import requests
+                    url = "https://api.groq.com/openai/v1/chat/completions"
+                    headers = {
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json"
+                    }
+                    payload = {
+                        "model": model_candidate,
+                        "messages": messages,
+                        "temperature": 0.2,
+                        "max_tokens": 850
+                    }
+                    res = requests.post(url, headers=headers, json=payload, timeout=15)
+                    if res.status_code == 200:
+                        data = res.json()
+                        choices = data.get("choices", [])
+                        if choices:
+                            content = choices[0].get("message", {}).get("content", "")
+                            if content and content.strip():
+                                llm_response = content.strip()
+                                model_used = f"Groq ({model_candidate})"
+                                break
+                except Exception as he:
+                    logger.warning(f"Groq HTTP request for {model_candidate} failed: {he}")
                     continue
 
         # 2. Secondary Fallback: Try Gemini API if Groq fails or is not configured
