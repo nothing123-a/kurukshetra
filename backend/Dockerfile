@@ -6,18 +6,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (including curl for healthcheck)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Copy requirements first for better Docker layer caching
 COPY requirements.txt .
 
 # Install Python dependencies
 RUN python -m pip install --upgrade pip && \
-    pip install --only-binary=:all: numpy pandas openpyxl plotly reportlab && \
     pip install -r requirements.txt
 
 # Copy application code
@@ -27,23 +27,18 @@ COPY . .
 RUN mkdir -p uploads/avatars && \
     mkdir -p instance
 
-# Set environment variables
-ENV SECRET_KEY=change-me
+# Default environment variables (overridden by .env / docker-compose)
+ENV SECRET_KEY=change-me-in-production
 ENV UPLOAD_FOLDER=uploads
 ENV SQLALCHEMY_DATABASE_URI=sqlite:///app.db
 ENV FLASK_ENV=production
-
-# Render provides PORT env var; default to 8000 for local
 ENV PORT=8000
+
 EXPOSE 8000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Start the application
-CMD ["sh", "-lc", "gunicorn -w 2 -k gthread -b 0.0.0.0:${PORT} --timeout 120 app:app"]
-
-
-
-
+# Start the application with Gunicorn
+CMD ["sh", "-c", "gunicorn -w 2 -k gthread -b 0.0.0.0:${PORT} --timeout 120 app:app"]

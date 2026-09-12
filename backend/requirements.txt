@@ -1,13 +1,28 @@
+# Flask Core
 Flask>=3.0.0
 Flask-Cors>=4.0.0
 Flask-Login>=0.6.3
 Flask-SQLAlchemy>=3.0.5
 Werkzeug>=3.0.1
 SQLAlchemy>=2.0.23
+
+# Data Processing
 pandas>=2.2.0
 numpy>=2.0.0
 openpyxl>=3.1.2
-requests>=2.31.0
-python-dotenv>=1.0.0
-gunicorn>=21.2.0; sys_platform != 'win32'
 
+# HTTP Requests (Gemini API, external services)
+requests>=2.31.0
+
+# Environment Variables
+python-dotenv>=1.0.0
+
+# Production WSGI Server (Linux only, Docker always runs Linux)
+gunicorn>=21.2.0
+
+# Reporting & Charts
+matplotlib>=3.8.0
+reportlab>=4.0.0
+
+# Machine Learning (used by advanced_data_cleaner.py, outlier detection)
+scikit-learn>=1.4.0
